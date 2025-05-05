@@ -1,0 +1,40 @@
+# Core ML Frameworks
+torch
+torchvision
+torchaudio
+mlx>=0.6 # Example version constraint
+transformers # For loading ViT/CLIP/Tokenizers
+datasets # For loading standard datasets
+
+# Utilities
+wandb # Experiment tracking
+pyyaml # For config.yaml
+tqdm # Progress bars
+numpy
+pillow # Image handling
+matplotlib # Plotting
+seaborn # Nicer plots
+pandas # Optional: data manipulation if needed
+
+# Web App & Deployment
+streamlit
+streamlit-drawable-canvas # For drawing input
+
+# Evaluation Metrics
+nltk # For BLEU score
+rouge-score # For ROUGE score
+# pycocoevalcap # For METEOR, CIDEr (might need specific install steps)
+
+# Testing
+pytest
+
+# Code Quality (Optional for runtime, good for dev)
+# black
+# flake8
+# isort
+# mypy
+# pre-commit
+
+# Optional: Specific Model Needs
+# torchinfo # For model summaries
+

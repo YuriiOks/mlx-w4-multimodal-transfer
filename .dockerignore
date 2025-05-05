@@ -1,0 +1,32 @@
+**/.git
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.DS_Store
+.ipynb_checkpoints
+notebooks/
+tests/
+data/ # Usually don't copy data into image
+models/ # Usually mount models or download them
+logs/
+wandb/
+*.log
+*.pkl
+*.pth
+*.safetensors
+*.png
+*.json # Exclude metrics etc. unless needed
+*.ipynb
+*.md # Exclude docs unless needed
+config.yaml # Often mounted as volume or passed via env vars
+Dockerfile
+.dockerignore
+.gitignore
+.flake8
+pyproject.toml
+.pre-commit-config.yaml
+scripts/ # Unless needed for entrypoint/setup inside container
+*.dvc # If using DVC
+.dvc/

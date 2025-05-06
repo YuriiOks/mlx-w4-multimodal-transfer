@@ -178,3 +178,8 @@ temp_*.png # Temporary plots from tests
 
 # Streamlit
 .streamlit/
+*.zsh
+*.sh
+
+.szh*
+.zsh*

@@ -7,4 +7,5 @@
 
 # Basic pass statement or main block for runnable scripts
 if __name__ == "__main__":
-    pass
+    # TODO: Add code to run training
+    # FIXME: This is a placeholder for the actual training code.

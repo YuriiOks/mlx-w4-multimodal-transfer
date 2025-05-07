@@ -353,13 +353,13 @@ python scripts/generate_project_doc.py --output-path docs/CONTEXT_FOR_LLM.md
 #### **Troubleshooting & FAQ ❓🔍**
 
 - *Q: The output is too large for my LLM!* 😱
-  - A: Lower `--max-files`, or add more directories to `--exclude-dirs`. 
+  - A: Lower `--max-files`, or add more directories to `--exclude-dirs`.
 - *Q: Some files are missing from the output!* 🧩
-  - A: Check if they're in an excluded directory or match an exclude pattern. 
+  - A: Check if they're in an excluded directory or match an exclude pattern.
 - *Q: The script fails with encoding errors!* 🚫
-  - A: It tries to handle most encodings, but binary files are skipped. If you have unusual text files, check their encoding. 
+  - A: It tries to handle most encodings, but binary files are skipped. If you have unusual text files, check their encoding.
 - *Q: Can I include Jupyter notebooks?* 📓
-  - A: By default, `.ipynb` files are excluded, but you can adjust the script to include them if needed. 
+  - A: By default, `.ipynb` files are excluded, but you can adjust the script to include them if needed.
 
 ---
 

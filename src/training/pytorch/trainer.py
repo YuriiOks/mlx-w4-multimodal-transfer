@@ -51,7 +51,6 @@ def train_epoch_pt(
     wandb_run: Optional[Any] = None,
     log_frequency: int = 100,
     gradient_clipping: Optional[float] = 1.0,
-    phase: int = 1,
     is_encoder_decoder: bool = False,
 ) -> float:
     """
@@ -68,7 +67,6 @@ def train_epoch_pt(
         wandb_run (Optional[Any]): Weights & Biases run object.
         log_frequency (int): Logging frequency for W&B.
         gradient_clipping (Optional[float]): Max norm for gradients.
-        phase (int): Training phase (1, 2, or 3).
         is_encoder_decoder (bool): If model is encoder-decoder.
 
     Returns:
@@ -99,16 +97,7 @@ def train_epoch_pt(
             )
         else:
             outputs = model(images)
-            if phase == 1:
-                loss = criterion(outputs, input_ids)
-            elif phase == 2:
-                loss = criterion(
-                    outputs.reshape(-1, outputs.shape[-1]),
-                    input_ids.reshape(-1),
-                )
-            else:
-                loss = torch.tensor(0.0, device=device)
-                logger.error("Unsupported phase in train_epoch_pt")
+            loss = criterion(outputs, input_ids)
 
         loss.backward()
         if gradient_clipping:
@@ -139,7 +128,6 @@ def evaluate_model_pt(
     dataloader: DataLoader,
     criterion: nn.Module,
     device: torch.device,
-    phase: int = 1,
     is_encoder_decoder: bool = False,
     pad_token_id: int = PAD_TOKEN_ID,
 ) -> Dict[str, float]:
@@ -151,7 +139,6 @@ def evaluate_model_pt(
         dataloader (DataLoader): Validation data loader.
         criterion (nn.Module): Loss function.
         device (torch.device): Device to use.
-        phase (int): Training phase (1, 2, or 3).
         is_encoder_decoder (bool): If model is encoder-decoder.
         pad_token_id (int): Padding token id.
 
@@ -166,7 +153,7 @@ def evaluate_model_pt(
     if num_batches == 0:
         return {"val_loss": 0.0, "val_accuracy": 0.0}
 
-    logger.info(f"🧪 Starting PyTorch evaluation (Phase {phase})...")
+    logger.info("🧪 Starting PyTorch evaluation...")
     with torch.no_grad():
         data_iterator = tqdm(dataloader, desc="Evaluating", ncols=76)
         for batch_data in data_iterator:
@@ -194,23 +181,10 @@ def evaluate_model_pt(
                 valid_tokens_batch = valid_tokens
             else:
                 outputs = model(images)
-                if phase == 1:
-                    loss = criterion(outputs, input_ids)
-                    preds = torch.argmax(outputs, dim=1)
-                    correct_batch = (preds == input_ids).sum().item()
-                    valid_tokens_batch = input_ids.size(0)
-                elif phase == 2:
-                    loss = criterion(
-                        outputs.reshape(-1, outputs.shape[-1]),
-                        input_ids.reshape(-1),
-                    )
-                    preds = torch.argmax(outputs, dim=2)
-                    correct_batch = (preds == input_ids).sum().item()
-                    valid_tokens_batch = input_ids.numel()
-                else:
-                    loss = torch.tensor(0.0)
-                    correct_batch = 0
-                    valid_tokens_batch = 0
+                loss = criterion(outputs, input_ids)
+                preds = torch.argmax(outputs, dim=1)
+                correct_batch = (preds == input_ids).sum().item()
+                valid_tokens_batch = input_ids.size(0)
                 total_correct += correct_batch
                 total_valid_tokens += valid_tokens_batch
                 current_acc = (
@@ -250,7 +224,6 @@ def train_model_pt(
     metrics_history: Dict[str, List[float]],
     model_save_dir: Path,
     config: Dict,
-    phase: int,
     run_name: str,
     wandb_run: Optional[Any] = None,
     lr_scheduler: Optional[_LRScheduler] = None,
@@ -270,7 +243,6 @@ def train_model_pt(
         metrics_history (Dict[str, List[float]]): Metrics history.
         model_save_dir (Path): Directory to save checkpoints.
         config (Dict): Full config for params.
-        phase (int): Training phase.
         run_name (str): Name of the run.
         wandb_run (Optional[Any]): W&B run object.
         lr_scheduler (Optional[_LRScheduler]): LR scheduler.
@@ -279,9 +251,7 @@ def train_model_pt(
     Returns:
         Dict[str, List[float]]: Updated metrics history.
     """
-    logger.info(
-        f"🚀 Starting/Resuming PyTorch Training: Run='{run_name}', Phase={phase}"
-    )
+    logger.info(f"🚀 Starting/Resuming PyTorch Training: Run='{run_name}'")
     logger.info(
         f"   Target Epochs: {target_epochs}, Starting from Epoch: {start_epoch}"
     )
@@ -291,12 +261,9 @@ def train_model_pt(
     dataset_cfg_to_save = config.get("dataset", {})
     tokenizer_cfg_to_save = config.get("tokenizer", {})
     pad_token_id = tokenizer_cfg_to_save.get("pad_token_id", PAD_TOKEN_ID)
-    is_enc_dec = phase == 3
+    is_enc_dec = False  # Set as needed for your use case
 
-    if phase == 3:
-        criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id).to(device)
-    else:
-        criterion = nn.CrossEntropyLoss().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
 
     best_val_accuracy = 0.0
     if metrics_history.get("val_accuracy"):
@@ -318,7 +285,6 @@ def train_model_pt(
             epoch,
             target_epochs,
             wandb_run,
-            phase=phase,
             is_encoder_decoder=is_enc_dec,
         )
         metrics_history["avg_train_loss"].append(avg_train_loss)
@@ -330,9 +296,8 @@ def train_model_pt(
                 val_dataloader,
                 criterion,
                 device,
-                phase,
-                is_enc_dec,
-                pad_token_id,
+                is_encoder_decoder=is_enc_dec,
+                pad_token_id=pad_token_id,
             )
             metrics_history["val_loss"].append(
                 val_metrics.get("val_loss", float("nan"))
@@ -388,7 +353,6 @@ def train_model_pt(
                 model_cfg_to_save,
                 dataset_cfg_to_save,
                 tokenizer_cfg_to_save,
-                phase,
             )
     logger.info("🏁 PyTorch Training finished for this run.")
     return metrics_history

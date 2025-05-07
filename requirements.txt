@@ -8,6 +8,7 @@ datasets # For loading standard datasets
 
 # Utilities
 wandb # Experiment tracking
+coloredlogs # For colored logging
 pyyaml # For config.yaml
 tqdm # Progress bars
 numpy
@@ -23,7 +24,7 @@ streamlit-drawable-canvas # For drawing input
 # Evaluation Metrics
 nltk # For BLEU score
 rouge-score # For ROUGE score
-# pycocoevalcap # For METEOR, CIDEr (might need specific install steps)
+# pyCOCO_mini_valevalcap # For METEOR, CIDEr (might need specific install steps)
 
 # Testing
 pytest

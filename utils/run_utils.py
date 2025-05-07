@@ -6,19 +6,20 @@
 # Updated: 2025-05-06
 
 
-import os
 import json
-import yaml
+import os
+from pathlib import Path
+from typing import Dict, List
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import List, Dict, Any
-from pathlib import Path
+import yaml
+
 from .logging import logger
 
+
 # --- Config Loading (Keep as is) ---
-def load_config(
-    config_path: str = "config.yaml"
-) -> dict | None:
+def load_config(config_path: str = "config.yaml") -> dict | None:
     """
     Loads configuration from a YAML file.
 
@@ -31,7 +32,7 @@ def load_config(
     """
     logger.info(f"🔍 Loading configuration from: {config_path}")
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
         logger.info("✅ Configuration loaded successfully.")
         return config
@@ -39,9 +40,8 @@ def load_config(
         logger.error(f"❌ Error loading config: {e}")
         return None
 
-def format_num_words(
-    num_words: int
-) -> str:
+
+def format_num_words(num_words: int) -> str:
     """
     Formats large numbers for filenames.
 
@@ -59,11 +59,12 @@ def format_num_words(
         return f"{num_words // 1_000}k"
     return str(num_words)
 
+
 # --- Saving Metrics ---
 def save_metrics(
     metrics_history: Dict[str, List[float]],
     save_dir: str | Path,
-    filename: str = "training_metrics.json"
+    filename: str = "training_metrics.json",
 ) -> str | None:
     """
     Saves epoch metrics history to a JSON file.
@@ -81,10 +82,11 @@ def save_metrics(
     save_dir.mkdir(parents=True, exist_ok=True)
     metrics_file = save_dir / filename
     try:
-        with open(metrics_file, 'w', encoding='utf-8') as f:
+        with open(metrics_file, "w", encoding="utf-8") as f:
             serializable_metrics = {
                 k: np.array(v).tolist()
-                if isinstance(v, (list, np.ndarray)) else v
+                if isinstance(v, (list, np.ndarray))
+                else v
                 for k, v in metrics_history.items()
             }
             json.dump(serializable_metrics, f, indent=2)
@@ -94,11 +96,12 @@ def save_metrics(
         logger.error(f"❌ Failed to save metrics history: {e}")
         return None
 
+
 # --- Plotting Metrics ---
 def plot_metrics(
     metrics_history: Dict[str, List[float]],
     save_dir: str | Path,
-    filename: str = "training_metrics.png"
+    filename: str = "training_metrics.png",
 ) -> str | None:
     """
     Plots training and validation metrics (loss, accuracy) and saves
@@ -119,7 +122,7 @@ def plot_metrics(
     save_dir.mkdir(parents=True, exist_ok=True)
     plot_file = save_dir / filename
 
-    required_keys = ['avg_train_loss']
+    required_keys = ["avg_train_loss"]
     if not all(key in metrics_history for key in required_keys):
         logger.error(
             f"❌ Metrics history dictionary missing required keys "
@@ -127,9 +130,9 @@ def plot_metrics(
         )
         return None
 
-    train_loss = metrics_history.get('avg_train_loss', [])
-    val_loss = metrics_history.get('val_loss', [])
-    val_acc = metrics_history.get('val_accuracy', [])
+    train_loss = metrics_history.get("avg_train_loss", [])
+    val_loss = metrics_history.get("val_loss", [])
+    val_acc = metrics_history.get("val_accuracy", [])
 
     num_epochs = len(train_loss)
     if num_epochs == 0:
@@ -153,36 +156,45 @@ def plot_metrics(
 
     # Plot Training & Validation Loss
     axes[plot_idx].plot(
-        epochs, train_loss, marker='o', linestyle='-', label='Avg Train Loss'
+        epochs, train_loss, marker="o", linestyle="-", label="Avg Train Loss"
     )
     if val_loss:
         if len(val_loss) == num_epochs:
             axes[plot_idx].plot(
-                epochs, val_loss, marker='x', linestyle='--',
-                label='Validation Loss'
+                epochs,
+                val_loss,
+                marker="x",
+                linestyle="--",
+                label="Validation Loss",
             )
         else:
             logger.warning("Validation loss length mismatch, skipping plot.")
     axes[plot_idx].set_ylabel("Loss")
     axes[plot_idx].set_title("Training & Validation Loss per Epoch")
     axes[plot_idx].legend()
-    axes[plot_idx].grid(True, ls='--')
+    axes[plot_idx].grid(True, ls="--")
     plot_idx += 1
 
     # Plot Validation Accuracy
     if val_acc:
         if len(val_acc) == num_epochs:
             axes[plot_idx].plot(
-                epochs, val_acc, marker='o', linestyle='-',
-                color='green', label='Validation Accuracy'
+                epochs,
+                val_acc,
+                marker="o",
+                linestyle="-",
+                color="green",
+                label="Validation Accuracy",
             )
             axes[plot_idx].set_ylabel("Accuracy (%)")
             axes[plot_idx].set_title("Validation Accuracy per Epoch")
             axes[plot_idx].legend()
-            axes[plot_idx].grid(True, ls='--')
+            axes[plot_idx].grid(True, ls="--")
             plot_idx += 1
         else:
-            logger.warning("Validation accuracy length mismatch, skipping plot.")
+            logger.warning(
+                "Validation accuracy length mismatch, skipping plot."
+            )
 
     axes[-1].set_xlabel("Epoch")
     if num_epochs < 20:
@@ -200,10 +212,9 @@ def plot_metrics(
         plt.close(fig)
         return None
 
+
 def save_losses(
-    losses: List[float],
-    save_dir: str,
-    filename: str = "training_losses.json"
+    losses: List[float], save_dir: str, filename: str = "training_losses.json"
 ) -> str | None:
     """
     Saves epoch losses to a JSON file.
@@ -220,18 +231,17 @@ def save_losses(
         os.makedirs(save_dir, exist_ok=True)
     loss_file = os.path.join(save_dir, filename)
     try:
-        with open(loss_file, 'w', encoding='utf-8') as f:
-            json.dump({'epoch_losses': losses}, f, indent=2)
+        with open(loss_file, "w", encoding="utf-8") as f:
+            json.dump({"epoch_losses": losses}, f, indent=2)
         logger.info(f"📉 Training losses saved to: {loss_file}")
         return loss_file
     except Exception as e:
         logger.error(f"❌ Failed to save losses: {e}")
         return None
 
+
 def plot_losses(
-    losses: List[float],
-    save_dir: str,
-    filename: str = "training_loss.png"
+    losses: List[float], save_dir: str, filename: str = "training_loss.png"
 ) -> str | None:
     """
     Plots epoch losses and saves the plot.
@@ -252,12 +262,12 @@ def plot_losses(
     try:
         epochs = range(1, len(losses) + 1)
         plt.figure(figsize=(10, 6))
-        plt.plot(epochs, losses, marker='o')
-        plt.title('Training Loss per Epoch')
-        plt.xlabel('Epoch')
-        plt.ylabel('Average Loss')
+        plt.plot(epochs, losses, marker="o")
+        plt.title("Training Loss per Epoch")
+        plt.xlabel("Epoch")
+        plt.ylabel("Average Loss")
         plt.xticks(epochs)
-        plt.grid(True, ls='--')
+        plt.grid(True, ls="--")
         plt.savefig(plot_file)
         logger.info(f"📈 Training loss plot saved to: {plot_file}")
         plt.close()

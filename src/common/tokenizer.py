@@ -5,6 +5,7 @@
 # Created: 2025-05-06
 # Updated: 2025-05-06
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -24,28 +25,38 @@ project_root = Path(script_dir).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-
 # --- Import logger ---
 try:
-    from src.utils.logging import logger
+    from utils import logger
+
+    CUSTOM_LOGGER = True
 except ImportError:
     # Fallback to a basic logger if the custom logger is not available
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s"
+    )
     logger = logging.getLogger("TokenizerUtils")
     logger.setLevel(logging.INFO)
     logger.info("Using basic logging setup.")
-    logger.warning(
-        "Custom logger not found. Using basic logging setup instead."
-    )
+    CUSTOM_LOGGER = False
+
+# This flag indicates if tokenizers are successfully loaded
+TOKENIZER_AVAILABLE = False
 
 try:
     from transformers import AutoTokenizer
 
     TOKENIZER_AVAILABLE = True
+    logger.info("🧠 Transformers library loaded successfully.")
 except ImportError:
-    TOKENIZER_AVAILABLE = False
+    if CUSTOM_LOGGER:
+        logger.error(
+            "❌ Could not import 'transformers'. Please install: pip install transformers"
+        )
+    else:
+        logging.error(
+            "❌ Could not import 'transformers'. Please install: pip install transformers"
+        )
 
 # --- Tokenizer Initialization ---
 # Use a common pre-trained tokenizer, e.g., GPT2

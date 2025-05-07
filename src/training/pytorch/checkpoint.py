@@ -43,7 +43,6 @@ def save_checkpoint_pt(
     model_config_to_save: Optional[Dict] = None,
     dataset_config_to_save: Optional[Dict] = None,
     tokenizer_config_to_save: Optional[Dict] = None,
-    current_phase: Optional[int] = None,
 ):
     """
     Save a PyTorch checkpoint including model weights, optimizer, scheduler,
@@ -60,7 +59,6 @@ def save_checkpoint_pt(
         model_config_to_save (Optional[Dict]): Model config for reload.
         dataset_config_to_save (Optional[Dict]): Dataset config for reload.
         tokenizer_config_to_save (Optional[Dict]): Tokenizer config.
-        current_phase (Optional[int]): Current training phase.
     """
     try:
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -68,24 +66,22 @@ def save_checkpoint_pt(
         torch.save(model.state_dict(), model_weights_path)
 
         state = {
-            "epoch": epoch + 1,
+            "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict()
             if scheduler
             else None,
+            "epoch": epoch + 1,
             "metrics_history": metrics_history,
             "model_config": model_config_to_save or {},
             "dataset_config": dataset_config_to_save or {},
             "tokenizer_config": tokenizer_config_to_save or {},
-            "phase": current_phase,
         }
         state_path = save_dir / CHECKPOINT_STATE_FILENAME
         with open(state_path, "wb") as f:
             pickle.dump(state, f)
 
-        logger.info(
-            f"💾 PyTorch Checkpoint saved to {save_dir} (Epoch {epoch+1})"
-        )
+        logger.info(f"💾 Saved checkpoint to {state_path} (epoch {epoch+1})")
 
         if is_best_model:
             best_model_path = save_dir.parent / BEST_MODEL_WEIGHTS_FILENAME
@@ -111,7 +107,6 @@ def load_checkpoint_pt(
     Optional[Dict],
     Optional[Dict],
     Optional[Dict],
-    Optional[int],
 ]:
     """
     Load a PyTorch checkpoint from disk.
@@ -130,7 +125,6 @@ def load_checkpoint_pt(
             loaded_model_config (Optional[Dict]): Model config.
             loaded_dataset_config (Optional[Dict]): Dataset config.
             loaded_tokenizer_config (Optional[Dict]): Tokenizer config.
-            loaded_phase (Optional[int]): Training phase.
     """
     model_weights_path = save_dir / MODEL_WEIGHTS_FILENAME
     state_path = save_dir / CHECKPOINT_STATE_FILENAME
@@ -148,7 +142,6 @@ def load_checkpoint_pt(
     loaded_model_cfg = None
     loaded_dataset_cfg = None
     loaded_tokenizer_cfg = None
-    loaded_phase = None
 
     if model_weights_path.exists() and state_path.exists():
         logger.info(
@@ -169,7 +162,6 @@ def load_checkpoint_pt(
             loaded_model_cfg = state.get("model_config")
             loaded_dataset_cfg = state.get("dataset_config")
             loaded_tokenizer_cfg = state.get("tokenizer_config")
-            loaded_phase = state.get("phase")
             logger.info(
                 f"✅ PT Checkpoint loaded. Will resume from epoch {start_epoch}."
             )
@@ -182,7 +174,6 @@ def load_checkpoint_pt(
             logger.info(
                 f"   Loaded tokenizer config: {'Yes' if loaded_tokenizer_cfg else 'No'}"
             )
-            logger.info(f"   Loaded phase: {loaded_phase}")
 
         except Exception as e:
             logger.error(
@@ -197,7 +188,6 @@ def load_checkpoint_pt(
             loaded_model_cfg = None
             loaded_dataset_cfg = None
             loaded_tokenizer_cfg = None
-            loaded_phase = None
     else:
         logger.info(
             "No PyTorch checkpoint found. Starting training from scratch."
@@ -212,7 +202,6 @@ def load_checkpoint_pt(
         loaded_model_cfg,
         loaded_dataset_cfg,
         loaded_tokenizer_cfg,
-        loaded_phase,
     )
 
 
@@ -235,7 +224,6 @@ if __name__ == "__main__":
     dummy_model_cfg = {"embed_dim": 256, "depth": 3}
     dummy_dataset_cfg = {"image_size": 224, "max_seq_len": 50}
     dummy_tokenizer_cfg = {"vocab_size": 1000}
-    dummy_phase = 1
 
     logger.info(f"Saving checkpoint to {dummy_save_dir}...")
     save_checkpoint_pt(
@@ -249,7 +237,6 @@ if __name__ == "__main__":
         model_config_to_save=dummy_model_cfg,
         dataset_config_to_save=dummy_dataset_cfg,
         tokenizer_config_to_save=dummy_tokenizer_cfg,
-        current_phase=dummy_phase,
     )
 
     logger.info(f"Loading checkpoint from {dummy_save_dir}...")
@@ -262,7 +249,6 @@ if __name__ == "__main__":
         m_cfg,
         ds_cfg,
         tk_cfg,
-        phase_loaded,
     ) = load_checkpoint_pt(dummy_save_dir, torch.device("cpu"))
 
     if model_sd is not None and opt_sd is not None:
@@ -271,12 +257,10 @@ if __name__ == "__main__":
         logger.info(f"Loaded model_cfg: {m_cfg}")
         logger.info(f"Loaded dataset_cfg: {ds_cfg}")
         logger.info(f"Loaded tokenizer_cfg: {tk_cfg}")
-        logger.info(f"Loaded phase: {phase_loaded}")
         assert epoch == dummy_epoch + 1
         assert m_cfg == dummy_model_cfg
         assert ds_cfg == dummy_dataset_cfg
         assert tk_cfg == dummy_tokenizer_cfg
-        assert phase_loaded == dummy_phase
         logger.info("✅ Checkpoint save/load values match.")
     else:
         logger.error("❌ Checkpoint loading failed in test.")

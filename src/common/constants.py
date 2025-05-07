@@ -6,8 +6,8 @@
 # Updated: 2025-05-06
 
 PAD_TOKEN = "[PAD]"
-START_TOKEN = "[START]" # Or [SOS], [BOS]
-END_TOKEN = "[END]"   # Or [EOS]
+START_TOKEN = "[START]"  # Or [SOS], [BOS]
+END_TOKEN = "[END]"  # Or [EOS]
 UNK_TOKEN = "[UNK]"
 
 # Placeholder IDs - these will be updated by the tokenizer

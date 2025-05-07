@@ -1,8 +1,5 @@
-# Multimodal Transfer Learning / Image Captioning
-# File: utils/__init__.py
-# Description: Package initialization for utils module.
-# Created: 2025-05-06
-# Updated: 2025-05-06
+# Utilities module
+# This file marks the directory as a Python package
 
 # Import the load_config function from config.py
 from .config import load_config

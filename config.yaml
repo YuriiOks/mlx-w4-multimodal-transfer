@@ -24,7 +24,7 @@ tokenizer:
 
 # --- Dataset Parameters ---
 dataset:
-  name: "flickr30k" # Example: 'flickr30k', 'coco_captions' (use HF dataset name)
+  name: "flickr30k" # Example: 'flickr30k', 'COCO_mini_val_captions' (use HF dataset name)
   image_size: 224    # Input size expected by ViT/CLIP
   patch_size: 16     # Example for ViT-Base-Patch16
   # Phase specific params not strictly needed if handling via task/model config

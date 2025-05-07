@@ -5,8 +5,10 @@
 # Created: 2025-05-05
 # Updated: 2025-05-05
 
-import yaml
 from pathlib import Path
+
+import yaml
+
 
 def load_config(config_path):
     """
@@ -18,12 +20,13 @@ def load_config(config_path):
     """
     try:
         config_path = Path(config_path)
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config = yaml.safe_load(f)
         return config
     except Exception as e:
         print(f"[config.py] Failed to load config: {e}")
         return None
+
 
 # Basic pass statement or main block for runnable scripts
 if __name__ == "__main__":

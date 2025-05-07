@@ -25,7 +25,7 @@ streamlit-drawable-canvas # For drawing input
 # Evaluation Metrics
 nltk # For BLEU score
 rouge-score # For ROUGE score
-# pyCOCO_mini_valevalcap # For METEOR, CIDEr (might need specific install steps)
+# pyCOCOevalcap # For METEOR, CIDEr (might need specific install steps)
 
 # Testing
 pytest

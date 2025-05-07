@@ -1,7 +1,7 @@
-# Week 4 Development Plan: 
+# Week 4 Development Plan:
 
 **Team:** Dropout Disco (Yurii, Artemis, Kenton, Nnamdi)
-**Goal:** 
+**Goal:**
 
 ---
 **Overall Plan:**

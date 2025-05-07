@@ -5,8 +5,6 @@
 # Created: 2025-05-05
 # Updated: 2025-05-06
 
-import os
-
 import torch
 
 # Import the logger instance directly from the logging module within the same package
@@ -37,26 +35,33 @@ def get_device() -> torch.device:
 
     logger.debug("⚙️  Checking for available hardware accelerators...")
 
-    if torch.backends.mps.is_available():
-        selected_device = torch.device("mps")
-        logger.info(
-            f"✅ MPS device found and available (Built: {mps_built}). "
-            "Selecting MPS."
-        )
-        fallback_enabled = (
-            os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK", "0") == "1"
-        )
-        logger.debug(
-            f"  -> MPS fallback to CPU is "
-            f"{'ENABLED' if fallback_enabled else 'DISABLED'}."
-        )
-    else:
-        selected_device = torch.device("cpu")
-        logger.warning(
-            f"⚠️ MPS not available (Available: "
-            f"{torch.backends.mps.is_available()}, Built: {mps_built}). "
-            "Falling back to CPU."
-        )
+    # if torch.backends.mps.is_available():
+    #     selected_device = torch.device("mps")
+    #     logger.info(
+    #         f"✅ MPS device found and available (Built: {mps_built}). "
+    #         "Selecting MPS."
+    #     )
+    #     fallback_enabled = (
+    #         os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK", "0") == "1"
+    #     )
+    #     logger.debug(
+    #         f"  -> MPS fallback to CPU is "
+    #         f"{'ENABLED' if fallback_enabled else 'DISABLED'}."
+    #     )
+    # else:
+    #     selected_device = torch.device("cpu")
+    #     logger.warning(
+    #         f"⚠️ MPS not available (Available: "
+    #         f"{torch.backends.mps.is_available()}, Built: {mps_built}). "
+    #         "Falling back to CPU."
+    #     )
+    logger.info("⚙️ DEBUG FALLBACK TO CPU")
+    selected_device = torch.device("cpu")
+    logger.warning(
+        f"⚠️ MPS not available (Available: "
+        f"{torch.backends.mps.is_available()}, Built: {mps_built}). "
+        "Falling back to CPU."
+    )
 
     logger.info(f"✨ Selected compute device: {selected_device.type.upper()}")
     return selected_device

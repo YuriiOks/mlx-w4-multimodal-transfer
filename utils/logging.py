@@ -42,24 +42,39 @@ LOG_FORMAT = os.environ.get(
     "%(asctime)s | %(name)s | %(levelname)-8s | "
     "[%(filename)s:%(lineno)d] | %(message)s",
 )
-FIELD_STYLES = coloredlogs.DEFAULT_FIELD_STYLES
-FIELD_STYLES["levelname"] = {"color": "white", "bold": True}
-FIELD_STYLES["name"] = {"color": "blue"}
-LEVEL_STYLES = coloredlogs.DEFAULT_LEVEL_STYLES
-LEVEL_STYLES["info"] = {"color": "green"}
-LEVEL_STYLES["warning"] = {"color": "yellow"}
-LEVEL_STYLES["error"] = {"color": "red", "bold": True}
-LEVEL_STYLES["critical"] = {
-    "color": "red",
-    "bold": True,
-    "background": "white",
-}
+FIELD_STYLES = (
+    coloredlogs.DEFAULT_FIELD_STYLES if COLOREDLOGS_AVAILABLE else {}
+)
+if COLOREDLOGS_AVAILABLE:
+    FIELD_STYLES["levelname"] = {"color": "white", "bold": True}
+    FIELD_STYLES["name"] = {"color": "blue"}
+
+LEVEL_STYLES = (
+    coloredlogs.DEFAULT_LEVEL_STYLES if COLOREDLOGS_AVAILABLE else {}
+)
+if COLOREDLOGS_AVAILABLE:
+    LEVEL_STYLES["info"] = {"color": "green"}
+    LEVEL_STYLES["warning"] = {"color": "yellow"}
+    LEVEL_STYLES["error"] = {"color": "red", "bold": True}
+    LEVEL_STYLES["critical"] = {
+        "color": "red",
+        "bold": True,
+        "background": "white",
+    }
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 LOGGER_NAME = "Dropout Disco"
 # --- End Config ---
 
 logger = logging.getLogger(LOGGER_NAME)
 _logging_initialized = False
+
+# Configure a basic root logger to avoid "No handlers could be found for logger" warnings
+# This ensures that any logging calls before our setup_logging() will at least go somewhere
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+    force=True,  # Override any existing basicConfig
+)
 
 
 def setup_logging(log_dir=LOGS_DIR, log_file=LOG_FILE_NAME):
@@ -144,7 +159,52 @@ def setup_logging(log_dir=LOGS_DIR, log_file=LOG_FILE_NAME):
         print(f"⚠️ Warning: No handlers configured for {LOGGER_NAME}.")
     _logging_initialized = True
 
+    # Configure other common module loggers to use our settings
+    # This helps reduce common "using basic setup" messages
+    _configure_common_loggers()
 
+    return logger
+
+
+def _configure_common_loggers():
+    """
+    Configure common third-party and project-specific loggers to use our settings.
+    This reduces duplicate log messages and ensures consistent formatting.
+    """
+    common_loggers = [
+        "TokenizerUtils",
+        "transformers",
+        "datasets",
+        "PIL",
+        "huggingface_hub",
+    ]
+
+    for logger_name in common_loggers:
+        module_logger = logging.getLogger(logger_name)
+        # Remove any existing handlers
+        for handler in module_logger.handlers[:]:
+            module_logger.removeHandler(handler)
+        # Inherit from our main logger
+        module_logger.handlers = logger.handlers.copy()
+        module_logger.setLevel(logger.level)
+        module_logger.propagate = False
+
+
+def get_logger():
+    """
+    Returns the configured logger instance. Ensures setup_logging has been called.
+    For use when importing the logger from other modules.
+
+    Returns:
+        logging.Logger: The configured logger instance
+    """
+    global _logging_initialized
+    if not _logging_initialized:
+        setup_logging()
+    return logger
+
+
+# Initialize logging for the main process only
 if (
     multiprocessing.current_process().name == "MainProcess"
     and not _logging_initialized

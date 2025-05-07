@@ -1,76 +1,103 @@
 # Multimodal Transfer Learning / Image Captioning - Configuration
-# File: config.yaml
 # Copyright (c) 2025 Dropout Disco Team (Yurii, Artemis, Nnamdi, Kenton)
-# Description: Central configuration file.
-# Created: 2025-05-05
+# File: config.yaml
+# Description: Central configuration file for the Week 4 Image Captioning project.
+# Created: 2025-05-06
 # Updated: 2025-05-07
 
 # --- General Paths ---
 paths:
-  model_save_dir: "models/image_captioning"
-  log_dir: "logs"
-  log_file_name: "multimodal_train.log"
-  data_dir: "data"
+  model_save_dir: "models/image_captioning" # Base directory for saved models
+  log_dir: "logs"                          # Directory for log files
+  log_file_name: "caption_train.log"     # Name for the main training log file
+  data_dir: "data/hf_datasets_cache"     # Optional: Custom cache for Hugging Face datasets
 
 # --- Tokenizer Configuration ---
 tokenizer:
-  hf_name: "gpt2" # Using GPT2 tokenizer as a base
-  pad_token_id: 50257 # Will be updated by tokenizer init
-  start_token_id: 50258
-  end_token_id: 50259
-  vocab_size: 50261 # Will be updated by tokenizer init
-  max_seq_len: 50
+  # Name of the Hugging Face pre-trained tokenizer to use as a base.
+  # Examples: "gpt2", "openai/clip-vit-base-patch32" (for its text tokenizer)
+  # "bert-base-uncased" (if you prefer BERT's wordpiece)
+  hf_name: "gpt2"
+  max_seq_len: 50         # Max caption length (including <start>, <end>) to pad/truncate to.
+  # vocab_size, pad_token_id, start_token_id, end_token_id will be
+  # dynamically determined and potentially logged by tokenizer.py or main script.
 
 # --- Dataset Parameters ---
 dataset:
-  name: "HuggingFaceM4/COCO_mini_val" # Or your chosen dataset
-  hf_config_name: null # If dataset has specific configurations
-  caption_col: "captions" # Adjust based on dataset
-  image_col: "image"    # Adjust based on dataset
-  image_size: 224
-  # patch_size not directly used by dataset if using HF processor
+  # Name of the Hugging Face dataset for image captioning
+  # Examples: "flickr30k", "HuggingFaceM4/COCO" (for testing), "coco_captions"
+  name: "flickr30k" # Use a small one for quick testing by default
+  hf_config_name: null    # Specify if the HF dataset has sub-configurations (e.g., "cleaned" for some)
+  split_train: "train"    # Name of the training split in the HF dataset
+  split_val: "validation" # Name of the validation split
+  split_test: "test"      # Name of the test split
+  caption_col: "captions" # Column name in HF dataset containing list of captions (e.g. for COCO)
+                          # For Flickr30k from some sources, it might be just "caption" (single string)
+  image_col: "image"      # Column name for the PIL Image object
+  # Image processing parameters (used by image_transforms.py and encoder_wrapper.py)
+  image_size: 224         # Target image size for the vision encoder
+  # For augmentation during training (used in image_transforms.py)
+  augment_train_images: True
+  # For debugging: use a subset of the data
+  max_train_samples: null # null or -1 for all, or e.g., 1000 for debug
+  max_val_samples: null   # null or -1 for all, or e.g., 200 for debug
 
 # --- Vision Encoder Configuration ---
 encoder:
-  hf_name: "google/vit-base-patch16-224-in21k"
-  # For ViT, last_hidden_state feature dim is usually model.config.hidden_size
-  # For CLIP vision tower, feature dim is model.config.hidden_size
-  feature_dim: 768 # Explicitly state this for clarity
-  freeze: True
+  # Hugging Face name of the pre-trained vision model
+  hf_name: "google/vit-base-patch16-224-in21k" # Default ViT
+  # Or: "openai/clip-vit-base-patch32" (select vision_model part in wrapper)
+  feature_dim: 768      # Output feature dimension of the encoder (e.g., 768 for ViT-Base/CLIP-Base)
+  freeze: True          # Whether to freeze the vision encoder weights during training
 
-# --- Decoder Model Hyperparameters ---
-model: # Parameters for the custom PyTorch/MLX decoder
-  # This embed_dim is for the DECODER part (text embeddings, decoder layers)
-  # Make it match the encoder's output feature_dim for direct connection
-  decoder_embed_dim: 768   # <--- Key Change: Match encoder.feature_dim
-  decoder_depth: 3         # Number of decoder blocks (as in your test)
-  decoder_num_heads: 8     # Number of attention heads in decoder
-  decoder_ffn_dim_ratio: 4.0 # Decoder MLP expansion ratio (ffn_dim = embed_dim * ratio)
-  dropout: 0.1
+# --- Decoder Model Hyperparameters (Your Custom Transformer Decoder) ---
+decoder: # Renamed from 'model' for clarity
+  embed_dim: 768       # Decoder embedding dimension (must match encoder_feature_dim if no projection)
+  depth: 4             # Number of decoder blocks
+  num_heads: 8         # Number of attention heads in decoder layers
+  ffn_dim_ratio: 4.0   # Decoder MLP expansion ratio (ffn_dim = embed_dim * ffn_dim_ratio)
+  dropout: 0.1         # Dropout rate for embeddings, MLP, attention projections
+  # attention_dropout: 0.1 # Already covered by general dropout if used in MHA
 
 # --- Training Hyperparameters ---
 training:
+  framework: "pytorch"    # "pytorch" or "mlx" - to be used by run_training.py
   epochs: 20
-  batch_size: 32 # Might need to be small due to model size
-  base_lr: 1e-4  # Common starting LR for fine-tuning decoders
-  weight_decay: 0.01
-  optimizer: "AdamW"
-  # Optional scheduler params
-  # scheduler: "CosineDecayWithWarmup"
-  # warmup_steps: 500
-  gradient_clipping: 1.0
-  save_every: 1
-  eval_every: 1
+  batch_size: 32          # Adjust based on GPU memory
+  base_lr: 5e-5           # Initial learning rate (common for fine-tuning)
+  weight_decay: 0.01      # For AdamW
+  optimizer_name: "AdamW" # "AdamW", "Adam"
+  # Learning Rate Scheduler settings
+  scheduler_name: "CosineAnnealingLR" # e.g., "CosineAnnealingLR", "ReduceLROnPlateau", "StepLR"
+  scheduler_params:         # Parameters specific to the chosen scheduler
+    T_max_factor: 1.0       # For Cosine: T_max = epochs * num_batches_per_epoch * T_max_factor
+    eta_min_factor: 0.01    # For Cosine: eta_min = base_lr * eta_min_factor
+    # For ReduceLROnPlateau:
+    # mode: "min"
+    # factor: 0.1
+    # patience: 3
+  warmup_steps: 500       # Number of linear warmup steps for LR (0 for no warmup)
+  gradient_clipping: 1.0  # Max norm for gradient clipping
+  save_every_epochs: 1    # Save checkpoint every N epochs
+  eval_every_epochs: 1    # Evaluate on validation set every N epochs
+  log_frequency_batches: 100 # Log batch metrics every N batches to W&B
 
 # --- Evaluation Parameters ---
 evaluation:
-  batch_size: 64
+  batch_size: 64          # Batch size for evaluation (can often be larger)
+  # Metrics to compute, e.g., ["bleu", "rouge", "meteor", "cider"]
 
-# --- Inference Parameters ---
+# --- Inference Parameters (for generate_caption.py and Streamlit app) ---
 inference:
-  generation_method: "greedy"
-  beam_size: 5
-  max_gen_len: 50
+  generation_method: "greedy" # "greedy" or "beam"
+  beam_size: 3                # If using beam search
+  max_gen_len: 50             # Max number of tokens to generate for a caption (excl. start/end)
+
+# --- W&B Configuration ---
+wandb:
+  project_name_pt: "image-captioning-pt"  # W&B project for PyTorch runs
+  project_name_mlx: "image-captioning-mlx" # W&B project for MLX runs
+  entity_name: null # Your W&B username or team name (optional, uses default)
 
 # --- Logging Configuration ---
 logging:

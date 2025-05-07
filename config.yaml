@@ -26,7 +26,7 @@ tokenizer:
 dataset:
   # Name of the Hugging Face dataset for image captioning
   # Examples: "flickr30k", "HuggingFaceM4/COCO" (for testing), "coco_captions"
-  name: "flickr30k" # Use a small one for quick testing by default
+  name: "nlphuji/flickr30k" # Use a small one for quick testing by default
   hf_config_name: null    # Specify if the HF dataset has sub-configurations (e.g., "cleaned" for some)
   split_train: "train"    # Name of the training split in the HF dataset
   split_val: "validation" # Name of the validation split
@@ -47,13 +47,13 @@ encoder:
   # Hugging Face name of the pre-trained vision model
   hf_name: "google/vit-base-patch16-224-in21k" # Default ViT
   # Or: "openai/clip-vit-base-patch32" (select vision_model part in wrapper)
-  feature_dim: 768      # Output feature dimension of the encoder (e.g., 768 for ViT-Base/CLIP-Base)
+  feature_dim: 512      # Output feature dimension of the encoder (e.g., 768 for ViT-Base/CLIP-Base)
   freeze: True          # Whether to freeze the vision encoder weights during training
 
 # --- Decoder Model Hyperparameters (Your Custom Transformer Decoder) ---
 decoder: # Renamed from 'model' for clarity
-  embed_dim: 768       # Decoder embedding dimension (must match encoder_feature_dim if no projection)
-  depth: 4             # Number of decoder blocks
+  embed_dim: 512       # Decoder embedding dimension (must match encoder_feature_dim if no projection)
+  depth: 6             # Number of decoder blocks
   num_heads: 8         # Number of attention heads in decoder layers
   ffn_dim_ratio: 4.0   # Decoder MLP expansion ratio (ffn_dim = embed_dim * ffn_dim_ratio)
   dropout: 0.1         # Dropout rate for embeddings, MLP, attention projections

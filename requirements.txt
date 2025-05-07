@@ -16,6 +16,7 @@ pillow # Image handling
 matplotlib # Plotting
 seaborn # Nicer plots
 pandas # Optional: data manipulation if needed
+pre-commit # For pre-commit hooks
 
 # Web App & Deployment
 streamlit
@@ -38,4 +39,3 @@ pytest
 
 # Optional: Specific Model Needs
 # torchinfo # For model summaries
-

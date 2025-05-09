@@ -184,3 +184,5 @@ temp_*.png # Temporary plots from tests
 .szh*
 .zsh*
 id_rsa
+PROJECT_DOCUMENTATION.html
+PROJECT_DOCUMENTATION.md

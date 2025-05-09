@@ -86,6 +86,9 @@ DEFAULT_EXCLUDE_PATTERNS = [
     r".*\.egg-info$",
     r".*\.coverage$",
     r".*\.cache$",
+    # Generate file:
+    r".*\.html$",
+    "generate_project_doc.py",
 ]
 
 # File extensions to programming language mapping

@@ -19,10 +19,11 @@ from utils import load_config, logger, plot_metrics, save_metrics
 
 # --- Add project root to sys.path ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)
-if project_root not in sys.path:
-    print(f"🚀 [run_training.py] Adding project root: {project_root}")
-    sys.path.insert(0, project_root)
+project_root = Path(script_dir).parent  # Go up three levels
+if str(project_root) not in sys.path:
+    print(f"🚂 [trainer_mlx.py] Adding project root: {project_root}")
+    sys.path.insert(0, str(project_root))
+
 
 # W&B Import
 try:

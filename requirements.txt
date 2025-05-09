@@ -10,7 +10,7 @@ datasets # For loading standard datasets
 wandb # Experiment tracking
 coloredlogs # For colored logging
 pyyaml # For config.yaml
-tqdm # Progress bars
+tqdm==4.66.1 # Progress bars
 numpy
 pillow # Image handling
 matplotlib # Plotting

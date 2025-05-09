@@ -32,6 +32,11 @@ def parse_args():
     parser.add_argument(
         "--model", type=str, default="resnet50", help="CNN backbone to use"
     )
+    parser.add_argument(
+        "--no-half",
+        action="store_true",
+        help="Disable half-precision (float16) for model weights (for compatibility)",
+    )
     return parser.parse_args()
 
 

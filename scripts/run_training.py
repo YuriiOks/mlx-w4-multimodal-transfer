@@ -7,16 +7,14 @@
 
 import argparse
 import os
-import random
 import sys
 from pathlib import Path
 
-import numpy as np
+import torch  # Added to fix F821 errors for torch usage
 
 from src.common.tokenizer import init_tokenizer
 
 # --- Project-specific imports ---
-from utils import get_device as get_pytorch_device
 from utils import load_config, logger, plot_metrics, save_metrics
 
 # --- Add project root to sys.path ---
@@ -25,7 +23,6 @@ project_root = os.path.dirname(script_dir)
 if project_root not in sys.path:
     print(f"🚀 [run_training.py] Adding project root: {project_root}")
     sys.path.insert(0, project_root)
-
 
 # W&B Import
 try:
@@ -140,6 +137,11 @@ def parse_args(config: dict):
         default=False,
         help="Run in debug mode (small data, few epochs).",
     )
+    parser.add_argument(
+        "--no-half",
+        action="store_true",
+        help="Disable half-precision (float16) for model weights (for compatibility)",
+    )
 
     args = parser.parse_args()
 
@@ -152,7 +154,7 @@ def parse_args(config: dict):
 
     logger.info(f"--- Effective Configuration ({args.framework.upper()}) ---")
     for arg, value in vars(args).items():
-        logger.info(f"  --{arg.replace('_', '-'):<20}: {value}")
+        logger.info(f"  --{arg.replace('_', '-'): <20}: {value}")
     logger.info("------------------------------------")
     return args
 
@@ -181,25 +183,8 @@ def main():
         return
     args = parse_args(config_from_file)  # Now parse fully
 
-    # --- Seeding ---
-    np.random.seed(args.seed)
-    random.seed(args.seed)
-    if args.framework == "pytorch":
-        import torch
-
-        torch.manual_seed(args.seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(args.seed)
-    elif args.framework == "mlx":
-        import mlx.core as mx
-
-        mx.random.seed(args.seed)
-    logger.info(f"🌱 Seed set to {args.seed}")
-
-    # --- Device (PyTorch specific, MLX is implicit) ---
-    pt_device = get_pytorch_device() if args.framework == "pytorch" else None
-    if pt_device:
-        logger.info(f"PyTorch using device: {pt_device}")
+    # --- Get Full Config for Modules (move this up before W&B logic) ---
+    full_config = config_from_file
 
     # --- W&B Init ---
     run = None
@@ -212,11 +197,23 @@ def main():
     else:
         run_name = run_name_base
 
+    # --- W&B project name selection (debug print) ---
+    wandb_project_name = args.wandb_project
+    if args.framework == "mlx":
+        wandb_project_name = full_config.get("wandb", {}).get(
+            "project_name_mlx", wandb_project_name
+        )
+        print(f"[DEBUG] Using W&B project name for MLX: {wandb_project_name}")
+    else:
+        wandb_project_name = full_config.get("wandb", {}).get(
+            "project_name_pt", wandb_project_name
+        )
+        print(
+            f"[DEBUG] Using W&B project name for PyTorch: {wandb_project_name}"
+        )
+
     if wandb is not None and not args.no_wandb:
         try:
-            wandb_project_name = args.wandb_project
-            if args.framework == "mlx":
-                wandb_project_name += "-mlx"
             run = wandb.init(
                 project=wandb_project_name,
                 entity=args.wandb_entity,
@@ -236,9 +233,6 @@ def main():
             else args.wandb_run_name
         )
 
-    # --- Get Full Config for Modules ---
-    full_config = config_from_file
-
     # --- Prepare Tokenizer (Common) ---
     tokenizer_cfg = full_config.get("tokenizer", {})
     hf_tokenizer_name = tokenizer_cfg.get("hf_name", "gpt2")
@@ -252,39 +246,44 @@ def main():
     # --- PyTorch Specific Path ---
     if args.framework == "pytorch":
         from datasets import load_dataset
-
-        # from torch.nn import CrossEntropyLoss
         from torch.optim import AdamW
         from torch.optim.lr_scheduler import CosineAnnealingLR
 
         from src.data.dataloader import get_dataloader
         from src.data.image_datasets import ImageCaptionDatasetPT
         from src.models.pytorch.caption_model import ImageCaptionerPT
-        from src.training.pytorch.checkpoint import (  # save_checkpoint_pt,
-            load_checkpoint_pt,
-        )
+        from src.training.pytorch.checkpoint import load_checkpoint_pt
         from src.training.pytorch.trainer import train_model_pt
+
+        # --- Device selection for PyTorch ---
+        pt_device = torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else (
+                "mps"
+                if hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()
+                else "cpu"
+            )
+        )
 
         logger.info("--- Loading PyTorch Data ---")
         dataset_params = full_config.get("dataset", {})
         train_transform = get_pytorch_image_transforms(
             image_size=dataset_params["image_size"], is_train=True
         )
-        # val_transform = get_pytorch_image_transforms(
-        #     image_size=dataset_params["image_size"], is_train=False
-        # )
 
         hf_dataset_name = dataset_params.get("name", "nlphuji/flickr30k")
-        # --- 👇 Load 'test' split and then manually split it (improved logic) ---
         logger.info(f"Loading '{hf_dataset_name}' dataset...")
         try:
             logger.info(
-                f"Attempting to load and process FULL dataset '{hf_dataset_name}' for PyTorch..."
+                f"Attempting to load and process FULL dataset "
+                f"'{hf_dataset_name}' for PyTorch..."
             )
             full_hf_dataset = load_dataset(
                 hf_dataset_name,
                 name=dataset_params.get("hf_config_name"),
-                split="test",  # Or 'train' if available
+                split="test",
                 trust_remote_code=True,
             )
             logger.info(
@@ -296,7 +295,7 @@ def main():
                 raw_dataset_input=full_hf_dataset,
                 split="all",
                 tokenizer=tokenizer,
-                image_transform=train_transform,  # Use train_transform for all initially
+                image_transform=train_transform,
                 max_seq_len=tokenizer_cfg.get("max_seq_len", 50),
                 caption_col=dataset_params.get("caption_col", "caption"),
                 image_col=dataset_params.get("image_col", "image"),
@@ -319,7 +318,8 @@ def main():
             )
 
             logger.info(
-                f"Created train dataset with {len(train_dataset)} samples and val dataset with {len(val_dataset)} samples."
+                f"Created train dataset with {len(train_dataset)} samples "
+                f"and val dataset with {len(val_dataset)} samples."
             )
 
         except Exception as e:
@@ -328,7 +328,6 @@ def main():
                 exc_info=True,
             )
             train_dataset, val_dataset = None, None
-        # --- End Manual Split Logic ---
 
         if (
             not train_dataset
@@ -447,13 +446,164 @@ def main():
         )
 
     elif args.framework == "mlx":
-        # MLX-specific logic placeholder
-        logger.info(
-            "MLX training path to be fully implemented based on PyTorch structure."
+        from src.data.dataloader import get_dataloader
+        from src.data.image_datasets import ImageCaptionDatasetPT
+        from src.models.mlx.caption_model import ImageCaptionerMLX
+        from src.training.mlx.checkpoint import load_checkpoint_mlx
+        from src.training.mlx.optim import (
+            create_optimizer_mlx,
+            create_scheduler_mlx,
         )
-        logger.warning(
-            "Ensure dataset_mlx.py, model_mlx.py, trainer_mlx.py, "
-            "checkpoint_mlx.py are complete."
+        from src.training.mlx.trainer import train_model_mlx
+
+        logger.info("--- Loading MLX Data ---")
+        dataset_params = full_config.get("dataset", {})
+        train_transform = get_pytorch_image_transforms(
+            image_size=dataset_params["image_size"], is_train=True
+        )
+        hf_dataset_name = dataset_params.get("name", "nlphuji/flickr30k")
+        logger.info(f"Loading '{hf_dataset_name}' dataset...")
+        try:
+            from datasets import load_dataset
+
+            full_hf_dataset = load_dataset(
+                hf_dataset_name,
+                name=dataset_params.get("hf_config_name"),
+                split="test",
+                trust_remote_code=True,
+            )
+            logger.info(
+                f"Loaded HF dataset with {len(full_hf_dataset)} samples."
+            )
+            full_caption_dataset = ImageCaptionDatasetPT(
+                dataset_name=dataset_params.get("name"),
+                raw_dataset_input=full_hf_dataset,
+                split="all",
+                tokenizer=tokenizer,
+                image_transform=train_transform,
+                max_seq_len=tokenizer_cfg.get("max_seq_len", 50),
+                caption_col=dataset_params.get("caption_col", "caption"),
+                image_col=dataset_params.get("image_col", "image"),
+                max_samples=None,
+            )
+            if len(full_caption_dataset) == 0:
+                raise ValueError("Full caption dataset resulted in 0 samples.")
+            from torch.utils.data import random_split
+
+            val_ratio = 0.1
+            num_total = len(full_caption_dataset)
+            val_len = int(val_ratio * num_total)
+            train_len = num_total - val_len
+            train_dataset, val_dataset = random_split(
+                full_caption_dataset,
+                [train_len, val_len],
+                generator=None,
+            )
+            logger.info(
+                f"Created train dataset with {len(train_dataset)} samples "
+                f"and val dataset with {len(val_dataset)} samples."
+            )
+        except Exception as e:
+            logger.error(
+                f"❌ Error during MLX data loading/splitting: {e}",
+                exc_info=True,
+            )
+            train_dataset, val_dataset = None, None
+        if (
+            not train_dataset
+            or not val_dataset
+            or len(train_dataset) == 0
+            or len(val_dataset) == 0
+        ):
+            logger.error(
+                "❌ MLX dataset loading resulted in empty dataset. Exiting."
+            )
+            if run:
+                run.finish(exit_code=1)
+                return
+        train_dataloader = get_dataloader(
+            train_dataset,
+            args.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            pin_memory=False,
+        )
+        val_dataloader = get_dataloader(
+            val_dataset,
+            args.batch_size * 2,
+            shuffle=False,
+            num_workers=args.num_workers,
+            pin_memory=False,
+        )
+        logger.info("--- Initializing MLX Model ---")
+        model_params = full_config.get("model", {})
+        encoder_params = full_config.get("encoder", {})
+        model = ImageCaptionerMLX(
+            vision_encoder_name=encoder_params.get("hf_name", "mlx-vit-base"),
+            decoder_vocab_size=_VOCAB_SIZE,
+            decoder_embed_dim=model_params.get("decoder_embed_dim", 768),
+            decoder_num_heads=model_params.get("decoder_num_heads", 8),
+            decoder_ffn_dim=model_params.get("decoder_embed_dim", 768)
+            * int(model_params.get("decoder_ffn_dim_ratio", 4.0)),
+            decoder_depth=model_params.get("decoder_depth", 6),
+            max_seq_len=tokenizer_cfg.get("max_seq_len", 50),
+            dropout=model_params.get("dropout", 0.1),
+            freeze_encoder=encoder_params.get("freeze", True),
+        )
+        optimizer = create_optimizer_mlx(
+            model,
+            optimizer_name=full_config.get("training", {}).get(
+                "optimizer_name", "adamw"
+            ),
+            lr=args.lr,
+            weight_decay=args.wd,
+        )
+        scheduler = create_scheduler_mlx(
+            optimizer,
+            scheduler_name=full_config.get("training", {}).get(
+                "scheduler_name", "cosineannealinglr"
+            ),
+            total_epochs=args.epochs,
+            base_lr=args.lr,
+            scheduler_params=full_config.get("training", {}).get(
+                "scheduler_params", {}
+            ),
+        )
+        start_epoch = 0
+        metrics_history = {
+            "avg_train_loss": [],
+            "val_loss": [],
+            "val_accuracy": [],
+            "learning_rate": [],
+        }
+        run_save_path = Path(args.model_save_dir) / run_name
+        if args.resume:
+            (
+                start_epoch,
+                metrics_history,
+                loaded_model_cfg,
+                loaded_ds_cfg,
+                loaded_tk_cfg,
+            ) = load_checkpoint_mlx(model, run_save_path)
+        logger.info(
+            f"MLX Model Parameters: {sum(p.size for p in model.parameters() if hasattr(p, 'size'))/1e6:.2f}M trainable"
+        )
+        logger.info("--- Starting MLX Training ---")
+        train_model_mlx(
+            model=model,
+            train_dataloader=train_dataloader,
+            val_dataloader=val_dataloader,
+            optimizer=optimizer,
+            target_epochs=args.epochs,
+            start_epoch=start_epoch,
+            metrics_history=metrics_history,
+            model_save_dir=run_save_path,
+            config=full_config,
+            run_name=run_name,
+            lr_scheduler=scheduler,
+            save_every=full_config.get("training", {}).get("save_every", 1),
+            pad_token_id=tokenizer_cfg.get("pad_token_id", 0),
+            is_encoder_decoder=True,
         )
 
     else:

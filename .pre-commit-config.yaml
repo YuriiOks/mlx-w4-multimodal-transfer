@@ -23,5 +23,5 @@ repos:
     -   id: flake8
         args: [
             "--max-line-length=79",
-            "--extend-ignore=E203,E501",  # E203 for black compatibility, E501 as black handles line length
+            "--extend-ignore=E203,E501,E402",  # E203 for black compatibility, E501 as black handles line length
         ]

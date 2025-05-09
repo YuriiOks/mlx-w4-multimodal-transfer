@@ -146,7 +146,7 @@ wsgi.xml
 # data/
 
 # Model files
-models/
+# models/
 
 # Log files
 logs/

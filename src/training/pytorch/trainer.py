@@ -261,9 +261,12 @@ def train_model_pt(
     dataset_cfg_to_save = config.get("dataset", {})
     tokenizer_cfg_to_save = config.get("tokenizer", {})
     pad_token_id = tokenizer_cfg_to_save.get("pad_token_id", PAD_TOKEN_ID)
-    is_enc_dec = False  # Set as needed for your use case
 
-    criterion = nn.CrossEntropyLoss().to(device)
+    # --- Set encoder-decoder flag correctly ---
+    is_enc_dec = True  # This trainer is for encoder-decoder captioning
+    # --- End Correction ---
+
+    criterion = nn.CrossEntropyLoss(ignore_index=pad_token_id).to(device)
 
     best_val_accuracy = 0.0
     if metrics_history.get("val_accuracy"):
@@ -285,7 +288,7 @@ def train_model_pt(
             epoch,
             target_epochs,
             wandb_run,
-            is_encoder_decoder=is_enc_dec,
+            is_encoder_decoder=is_enc_dec,  # Now True
         )
         metrics_history["avg_train_loss"].append(avg_train_loss)
 
@@ -294,9 +297,9 @@ def train_model_pt(
             val_metrics = evaluate_model_pt(
                 model,
                 val_dataloader,
-                criterion,
+                criterion,  # Pass the existing criterion
                 device,
-                is_encoder_decoder=is_enc_dec,
+                is_encoder_decoder=is_enc_dec,  # Now True
                 pad_token_id=pad_token_id,
             )
             metrics_history["val_loss"].append(
